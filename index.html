@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lavaca River Ranch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#34502A">
+<!-- Home screen icon and name. iPhone reads the apple-* lines; Android reads the manifest. -->
+<link rel="apple-touch-icon" href="lrr-icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="lrr-icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="LRR">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  html, body { margin: 0; height: 100%; background: #34502A; overflow: hidden; }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; visibility: hidden; }
+  #app.ready { visibility: visible; }
+  #wait { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px; text-align: center; color: #F3EBD8; font: 20px/1.4 Georgia, 'Times New Roman', serif; }
+  #wait img { width: 120px; height: 120px; border-radius: 24px; }
+  #wait.gone { display: none; }
+</style>
+</head>
+<body>
+<!--
+  Lavaca River Ranch guest app: home screen wrapper.
+  This page only gives the phone a ranch icon and name, then shows the guest app (a Google Apps Script web app) in a
+  full-screen frame. It holds no guest names, no Sheet link and no keys. The group code and the guest's name travel in
+  the link, the same as on the Google link:
+      .../?group=CODE              a group's link
+      .../?group=CODE&me=Full Name a guest's own link (me=viewer for "Just looking")
+      add app=test                 to open the TEST copy of the app (Danny only)
+  The manifest has no start_url on purpose: the home screen icon must reopen the link the guest was on.
+-->
+<div id="wait"><img src="lrr-icon-192.png" alt=""><div id="msg">Opening Lavaca River Ranch…</div></div>
+<iframe id="app" title="Lavaca River Ranch guest app" allow="camera; clipboard-write; geolocation"></iframe>
+<script>
+(function () {
+  // The two copies of the guest app. These IDs are already part of the links guests are texted; they are not secrets.
+  var APPS = {
+    live: 'AKfycbw5l6x6GzMJL4u5T-8ZVEtuC0XvSiWx_5DwB89JEkMtDS1-68p8csdYq6C3FH0sqjju',
+    test: 'AKfycbwv-70XLnPWSOFKcKKAcAIo9ecYidsAamsu1uXee2MTRzMIsDN0fGn68EcYABtyLoGF'
+  };
+  var q = new URLSearchParams(location.search);
+  var which = q.get('app') === 'test' ? 'test' : 'live';
+  var group = (q.get('group') || '').trim(), me = (q.get('me') || '').trim();
+
+  // Backup for phones whose home screen icon drops the end of the link: remember the last link opened on this phone.
+  var KEY = 'lrr-wrapper-last';
+  try {
+    if (group) localStorage.setItem(KEY, JSON.stringify({ app: which, group: group, me: me }));
+    else {
+      var last = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (last && last.group) {
+        which = last.app === 'test' ? 'test' : 'live'; group = String(last.group); me = String(last.me || '');
+        // Put it back in the address, so "Add to Home Screen" saves the full link.
+        history.replaceState(null, '', '?' + (which === 'test' ? 'app=test&' : '') + 'group=' + encodeURIComponent(group) + (me ? '&me=' + encodeURIComponent(me) : ''));
+      }
+    }
+  } catch (e) { /* storage is off on this phone: the link alone still works */ }
+
+  var wait = document.getElementById('wait'), frame = document.getElementById('app');
+  if (!/^[\w-]{1,60}$/.test(group)) {
+    document.getElementById('msg').textContent = 'Please open the link your host texted you.';
+    return;
+  }
+  frame.addEventListener('load', function () { frame.className = 'ready'; wait.className = 'gone'; });
+  // w tells the app it is inside this page, so its Refresh and "Open as me" links come back here.
+  frame.src = 'https://script.google.com/macros/s/' + APPS[which] + '/exec?group=' + encodeURIComponent(group) +
+    (me ? '&me=' + encodeURIComponent(me.slice(0, 80)) : '') + '&w=1';
+})();
+</script>
+</body>
+</html>
